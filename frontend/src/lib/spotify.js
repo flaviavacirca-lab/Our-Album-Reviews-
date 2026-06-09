@@ -7,7 +7,7 @@ function getToken() {
 
 async function refreshToken() {
   const refresh = localStorage.getItem("spotify_refresh_token");
-  if (!refresh) throw new Error("No refresh token");
+  if (!refresh) throw new Error("No refresh token — please log out and log back in");
 
   const res = await fetch(`${SERVER_URL}/refresh`, {
     method: "POST",
@@ -23,20 +23,31 @@ async function refreshToken() {
     }
     return data.access_token;
   }
-  throw new Error("Refresh failed");
+  throw new Error("Token refresh failed — please log out and log back in");
 }
 
 async function apiFetch(path, retried = false) {
-  const token = getToken();
-  if (!token) throw new Error("Not authenticated");
+  let token = getToken();
+
+  if (!token) {
+    try {
+      token = await refreshToken();
+    } catch (err) {
+      throw err;
+    }
+  }
 
   const res = await fetch(`${API_BASE}${path}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
 
   if (res.status === 401 && !retried) {
-    await refreshToken();
-    return apiFetch(path, true);
+    try {
+      await refreshToken();
+      return apiFetch(path, true);
+    } catch (err) {
+      throw err;
+    }
   }
 
   if (!res.ok) {

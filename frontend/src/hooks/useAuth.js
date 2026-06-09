@@ -16,9 +16,14 @@ export function useAuth() {
     try {
       const profile = await getCurrentUser();
       setSpotifyUser(profile);
-      const user = await ensureUser(profile);
-      setDbUser(user);
-    } catch {
+      try {
+        const user = await ensureUser(profile);
+        setDbUser(user);
+      } catch (dbErr) {
+        console.error("Supabase error:", dbErr);
+      }
+    } catch (spotifyErr) {
+      console.error("Spotify auth error:", spotifyErr);
       localStorage.removeItem("spotify_access_token");
       localStorage.removeItem("spotify_refresh_token");
     } finally {
