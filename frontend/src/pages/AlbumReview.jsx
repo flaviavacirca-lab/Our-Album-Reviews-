@@ -1,21 +1,15 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase.js";
 import { getAlbumTracks } from "../lib/spotify.js";
-import {
-  getReviewScores,
-  upsertScore,
-  getAllUsers,
-  getDisagrees,
-  toggleDisagree,
-} from "../lib/room.js";
+import { getReviewScores, upsertScore, getAllUsers } from "../lib/room.js";
 import { useRealtime } from "../hooks/useRealtime.js";
 
 const CATEGORIES = [
-  { key: "catchiness", label: "Catch", emoji: "🪝" },
-  { key: "singability", label: "Sing", emoji: "🎤" },
-  { key: "lyrics", label: "Lyrics", emoji: "📝" },
-  { key: "transition", label: "Trans", emoji: "🔀" },
+  { key: "catchiness", label: "Catch" },
+  { key: "singability", label: "Sing" },
+  { key: "lyrics", label: "Lyrics" },
+  { key: "transition", label: "Flow" },
 ];
 
 export default function AlbumReview({ user }) {
@@ -24,10 +18,7 @@ export default function AlbumReview({ user }) {
   const [review, setReview] = useState(null);
   const [tracks, setTracks] = useState([]);
   const [scores, setScores] = useState([]);
-  const [disagrees, setDisagrees] = useState([]);
   const [users, setUsers] = useState([]);
-  const [playingTrackId, setPlayingTrackId] = useState(null);
-  const audioRef = useRef(null);
 
   useEffect(() => {
     async function load() {
@@ -43,14 +34,12 @@ export default function AlbumReview({ user }) {
       const { tracks: albumTracks } = await getAlbumTracks(rev.album_id);
       setTracks(albumTracks);
 
-      const [scoresData, usersData, disagreesData] = await Promise.all([
+      const [scoresData, usersData] = await Promise.all([
         getReviewScores(reviewId),
         getAllUsers(),
-        getDisagrees(reviewId),
       ]);
       setScores(scoresData);
       setUsers(usersData);
-      setDisagrees(disagreesData);
     }
     load();
   }, [reviewId, navigate]);
@@ -59,12 +48,7 @@ export default function AlbumReview({ user }) {
     getReviewScores(reviewId).then(setScores);
   }, [reviewId]);
 
-  const refreshDisagrees = useCallback(() => {
-    getDisagrees(reviewId).then(setDisagrees);
-  }, [reviewId]);
-
   useRealtime("scores", `review_id=eq.${reviewId}`, refreshScores);
-  useRealtime("disagrees", `review_id=eq.${reviewId}`, refreshDisagrees);
 
   const partner = users.find((u) => u.id !== user.id);
 
@@ -73,12 +57,6 @@ export default function AlbumReview({ user }) {
       (sc) => sc.track_id === trackId && sc.user_id === userId
     );
     return s?.[category] || "";
-  }
-
-  function hasDisagree(trackId, userId) {
-    return disagrees.some(
-      (d) => d.track_id === trackId && d.user_id === userId
-    );
   }
 
   async function handleScoreChange(track, category, value) {
@@ -117,39 +95,10 @@ export default function AlbumReview({ user }) {
     await upsertScore(reviewId, user.id, track, currentScores);
   }
 
-  async function handleDisagree(trackId) {
-    const nowDisagreed = await toggleDisagree(reviewId, trackId, user.id);
-    setDisagrees((prev) => {
-      if (nowDisagreed) {
-        return [...prev, { review_id: reviewId, track_id: trackId, user_id: user.id }];
-      }
-      return prev.filter(
-        (d) => !(d.track_id === trackId && d.user_id === user.id)
-      );
-    });
+  function openInSpotify(track) {
+    const url = track.external_urls?.spotify;
+    if (url) window.open(url, "_blank");
   }
-
-  function playPreview(track) {
-    if (!track.preview_url) return;
-
-    if (playingTrackId === track.id) {
-      audioRef.current?.pause();
-      setPlayingTrackId(null);
-      return;
-    }
-
-    if (audioRef.current) audioRef.current.pause();
-    const audio = new Audio(track.preview_url);
-    audio.volume = 0.5;
-    audio.play();
-    audio.onended = () => setPlayingTrackId(null);
-    audioRef.current = audio;
-    setPlayingTrackId(track.id);
-  }
-
-  useEffect(() => {
-    return () => { audioRef.current?.pause(); };
-  }, []);
 
   function trackAvg(trackId, userId) {
     const s = scores.find(
@@ -165,10 +114,12 @@ export default function AlbumReview({ user }) {
     return <div className="loading-page"><div className="loader" /></div>;
   }
 
+  const partnerName = partner?.display_name?.split(" ")[0];
+
   return (
     <div className="review-page">
       <header className="review-header">
-        <button className="btn-back" onClick={() => navigate("/")}>← Back</button>
+        <button className="btn-back" onClick={() => navigate("/")}>←</button>
         <div className="review-album-info">
           {review.album_image && (
             <img src={review.album_image} alt="" className="review-album-art" />
@@ -180,106 +131,84 @@ export default function AlbumReview({ user }) {
         </div>
       </header>
 
-      <div className="spreadsheet-container">
-        <table className="spreadsheet">
+      <div className="spreadsheet-wrap">
+        <table className="sheet">
           <thead>
             <tr>
-              <th className="col-track">Track</th>
+              <th className="th-track">#</th>
+              <th className="th-name">Track</th>
               {CATEGORIES.map((cat) => (
-                <th key={cat.key} className="col-score" title={cat.key}>
-                  <span className="cat-emoji">{cat.emoji}</span>
-                  <span className="cat-label">{cat.label}</span>
+                <th key={cat.key} className="th-score" colSpan={partner ? 2 : 1}>
+                  {cat.label}
                 </th>
               ))}
-              <th className="col-avg">Avg</th>
-              <th className="col-disagree"></th>
+              <th className="th-score" colSpan={partner ? 2 : 1}>Avg</th>
             </tr>
             {partner && (
-              <tr className="user-labels-row">
-                <td></td>
+              <tr className="row-who">
+                <th></th>
+                <th></th>
                 {CATEGORIES.map((cat) => (
-                  <td key={cat.key} className="user-label-cell">
-                    <span className="user-label you">You</span>
-                    <span className="user-label them">{partner.display_name.split(" ")[0]}</span>
-                  </td>
+                  <React.Fragment key={cat.key}>
+                    <th className="who you">You</th>
+                    <th className="who them">{partnerName}</th>
+                  </React.Fragment>
                 ))}
-                <td className="user-label-cell">
-                  <span className="user-label you">You</span>
-                  <span className="user-label them">{partner.display_name.split(" ")[0]}</span>
-                </td>
-                <td></td>
+                <th className="who you">You</th>
+                <th className="who them">{partnerName}</th>
               </tr>
             )}
           </thead>
           <tbody>
             {tracks.map((track) => {
               const myAvg = trackAvg(track.id, user.id);
-              const partnerAvg = partner ? trackAvg(track.id, partner.id) : null;
-              const iDisagreed = hasDisagree(track.id, user.id);
-              const partnerDisagreed = partner && hasDisagree(track.id, partner.id);
-              const isPlaying = playingTrackId === track.id;
+              const pAvg = partner ? trackAvg(track.id, partner.id) : null;
 
               return (
-                <tr key={track.id} className={partnerDisagreed ? "row-disagreed" : ""}>
-                  <td className="col-track">
+                <tr key={track.id}>
+                  <td className="td-num">{track.track_number}</td>
+                  <td className="td-name">
                     <button
-                      className={`track-play-btn ${isPlaying ? "playing" : ""} ${!track.preview_url ? "no-preview" : ""}`}
-                      onClick={() => playPreview(track)}
-                      disabled={!track.preview_url}
-                      title={track.preview_url ? (isPlaying ? "Pause" : "Play preview") : "No preview available"}
+                      className="play-link"
+                      onClick={() => openInSpotify(track)}
+                      title="Open in Spotify"
                     >
-                      {isPlaying ? "⏸" : "▶"}
+                      <span className="play-icon">▶</span>
+                      {track.name}
                     </button>
-                    <div className="track-info">
-                      <span className="track-number">{track.track_number}</span>
-                      <span className="track-name">{track.name}</span>
-                    </div>
                   </td>
 
                   {CATEGORIES.map((cat) => (
-                    <td key={cat.key} className="col-score">
-                      <div className="score-pair">
+                    <React.Fragment key={cat.key}>
+                      <td className="td-score">
                         <input
                           type="number"
                           min="1"
                           max="5"
                           value={getScore(track.id, user.id, cat.key)}
                           onChange={(e) => handleScoreChange(track, cat.key, e.target.value)}
-                          className="score-input you"
+                          className="inp you"
                           placeholder="–"
                         />
-                        {partner && (
-                          <span className="score-display them">
+                      </td>
+                      {partner && (
+                        <td className="td-score">
+                          <span className="val them">
                             {getScore(track.id, partner.id, cat.key) || "–"}
                           </span>
-                        )}
-                      </div>
-                    </td>
+                        </td>
+                      )}
+                    </React.Fragment>
                   ))}
 
-                  <td className="col-avg">
-                    <div className="avg-pair">
-                      <span className="avg-val you">{myAvg || "–"}</span>
-                      {partner && (
-                        <span className="avg-val them">{partnerAvg || "–"}</span>
-                      )}
-                    </div>
+                  <td className="td-score">
+                    <span className="val avg you">{myAvg || "–"}</span>
                   </td>
-
-                  <td className="col-disagree">
-                    <button
-                      className={`disagree-btn ${iDisagreed ? "active" : ""}`}
-                      onClick={() => handleDisagree(track.id)}
-                      title={iDisagreed ? "You disagree!" : "Disagree with this score?"}
-                    >
-                      👎
-                    </button>
-                    {partnerDisagreed && (
-                      <span className="partner-disagree" title={`${partner.display_name} disagrees!`}>
-                        🔥
-                      </span>
-                    )}
-                  </td>
+                  {partner && (
+                    <td className="td-score">
+                      <span className="val avg them">{pAvg || "–"}</span>
+                    </td>
+                  )}
                 </tr>
               );
             })}
@@ -287,15 +216,13 @@ export default function AlbumReview({ user }) {
         </table>
       </div>
 
-      <div className="review-footer">
+      <footer className="review-footer">
         <div className="legend">
-          <span className="legend-item you">■ You</span>
-          {partner && (
-            <span className="legend-item them">■ {partner.display_name.split(" ")[0]}</span>
-          )}
+          <span className="legend-you">● You</span>
+          {partner && <span className="legend-them">● {partnerName}</span>}
         </div>
-        <div className="scoring-guide">1 = nah · 5 = absolute banger</div>
-      </div>
+        <span className="guide">1 = nah · 5 = banger</span>
+      </footer>
     </div>
   );
 }

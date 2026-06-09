@@ -95,34 +95,3 @@ export async function getReviewScores(reviewId) {
   return data || [];
 }
 
-export async function toggleDisagree(reviewId, trackId, userId) {
-  const { data: existing } = await supabase
-    .from("disagrees")
-    .select("*")
-    .eq("review_id", reviewId)
-    .eq("track_id", trackId)
-    .eq("user_id", userId)
-    .single();
-
-  if (existing) {
-    await supabase.from("disagrees").delete().eq("id", existing.id);
-    return false;
-  } else {
-    await supabase.from("disagrees").insert({
-      review_id: reviewId,
-      track_id: trackId,
-      user_id: userId,
-    });
-    return true;
-  }
-}
-
-export async function getDisagrees(reviewId) {
-  const { data, error } = await supabase
-    .from("disagrees")
-    .select("*")
-    .eq("review_id", reviewId);
-
-  if (error) throw error;
-  return data || [];
-}
