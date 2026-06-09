@@ -60,7 +60,7 @@ async function apiFetch(path, retried = false) {
 
 export async function searchAlbums(query) {
   if (!query.trim()) return [];
-  const data = await apiFetch(`/search?type=album&q=${encodeURIComponent(query)}&limit=12`);
+  const data = await apiFetch(`/search?q=${encodeURIComponent(query)}&type=album&limit=20`);
   return data.albums.items;
 }
 
