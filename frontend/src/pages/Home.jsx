@@ -8,6 +8,7 @@ export default function Home({ user, spotifyUser, onLogout }) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
   const [searching, setSearching] = useState(false);
+  const [error, setError] = useState("");
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -19,9 +20,11 @@ export default function Home({ user, spotifyUser, onLogout }) {
     const timer = setTimeout(async () => {
       setSearching(true);
       try {
+        setError("");
         setResults(await searchAlbums(query));
-      } catch {
+      } catch (err) {
         setResults([]);
+        setError(err.message);
       } finally {
         setSearching(false);
       }
@@ -65,6 +68,7 @@ export default function Home({ user, spotifyUser, onLogout }) {
             />
             {searching && <div className="search-spinner" />}
           </div>
+          {error && <p className="search-error">{error}</p>}
 
           {results.length > 0 && (
             <div className="album-grid">

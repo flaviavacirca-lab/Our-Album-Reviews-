@@ -241,6 +241,15 @@ body {
 
 .search-input::placeholder { color: var(--text-muted); }
 
+.search-error {
+  color: var(--coral);
+  font-size: 14px;
+  margin-top: 8px;
+  padding: 10px 14px;
+  background: var(--coral-soft);
+  border-radius: var(--radius-sm);
+}
+
 .search-spinner {
   position: absolute;
   right: 14px;
