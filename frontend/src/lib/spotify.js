@@ -1,5 +1,11 @@
 const API_BASE = "https://api.spotify.com/v1";
-const SERVER_URL = "http://127.0.0.1:8000";
+
+function getServerUrl() {
+  if (window.location.hostname === "127.0.0.1" || window.location.hostname === "localhost") {
+    return "http://127.0.0.1:8000";
+  }
+  return "";
+}
 
 function getToken() {
   return localStorage.getItem("spotify_access_token");
@@ -9,7 +15,7 @@ async function refreshToken() {
   const refresh = localStorage.getItem("spotify_refresh_token");
   if (!refresh) throw new Error("No refresh token — please log out and log back in");
 
-  const res = await fetch(`${SERVER_URL}/refresh`, {
+  const res = await fetch(`${getServerUrl()}/api/refresh`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ refresh_token: refresh }),
@@ -74,4 +80,11 @@ export async function getAlbumTracks(albumId) {
 
 export async function getCurrentUser() {
   return apiFetch("/me");
+}
+
+export function getLoginUrl() {
+  if (window.location.hostname === "127.0.0.1" || window.location.hostname === "localhost") {
+    return "http://127.0.0.1:8000/login";
+  }
+  return "/api/login";
 }

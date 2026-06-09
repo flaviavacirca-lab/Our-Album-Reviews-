@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { getCurrentUser } from "../lib/spotify.js";
+import { getCurrentUser, getLoginUrl } from "../lib/spotify.js";
 import { ensureUser } from "../lib/room.js";
 
 export function useAuth() {
@@ -36,7 +36,7 @@ export function useAuth() {
   }, [loadUser]);
 
   const login = () => {
-    window.location.href = "http://127.0.0.1:8000/login";
+    window.location.href = getLoginUrl();
   };
 
   const logout = () => {

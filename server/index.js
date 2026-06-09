@@ -57,7 +57,7 @@ app.get("/callback", async (req, res) => {
   }
 });
 
-app.post("/refresh", async (req, res) => {
+app.post("/api/refresh", async (req, res) => {
   const { refresh_token } = req.body;
   if (!refresh_token) {
     return res.status(400).json({ error: "refresh_token required" });
