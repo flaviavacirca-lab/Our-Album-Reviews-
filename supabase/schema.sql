@@ -42,7 +42,7 @@ create table scores (
   unique(review_id, user_id, track_id)
 );
 
--- Reactions: emoji per track
+-- Reactions: multiple emojis per track per user
 create table reactions (
   id uuid primary key default gen_random_uuid(),
   review_id uuid references reviews(id) on delete cascade not null,
@@ -50,7 +50,7 @@ create table reactions (
   user_id uuid references users(id) on delete cascade not null,
   emoji text not null,
   created_at timestamptz default now(),
-  unique(review_id, track_id, user_id)
+  unique(review_id, track_id, user_id, emoji)
 );
 
 -- Enable real-time

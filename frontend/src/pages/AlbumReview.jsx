@@ -8,6 +8,7 @@ import {
   getAllUsers,
   getReactions,
   setReaction,
+  removeReaction,
 } from "../lib/room.js";
 import { useRealtime } from "../hooks/useRealtime.js";
 
@@ -135,16 +136,28 @@ export default function AlbumReview({ user }) {
   }
 
   async function handleReaction(trackId, emoji) {
-    setReactions((prev) => {
-      const without = prev.filter((r) => !(r.track_id === trackId && r.user_id === user.id));
-      return [...without, { review_id: reviewId, track_id: trackId, user_id: user.id, emoji }];
-    });
-    setOpenPicker(null);
-    await setReaction(reviewId, trackId, user.id, emoji);
+    const existing = reactions.find(
+      (r) => r.track_id === trackId && r.user_id === user.id && r.emoji === emoji
+    );
+
+    if (existing) {
+      setReactions((prev) => prev.filter((r) => r !== existing));
+      setOpenPicker(null);
+      await removeReaction(reviewId, trackId, user.id, emoji);
+    } else {
+      setReactions((prev) => [
+        ...prev,
+        { review_id: reviewId, track_id: trackId, user_id: user.id, emoji },
+      ]);
+      setOpenPicker(null);
+      await setReaction(reviewId, trackId, user.id, emoji);
+    }
   }
 
-  function getReactionForUser(trackId, userId) {
-    return reactions.find((r) => r.track_id === trackId && r.user_id === userId)?.emoji;
+  function getReactionsForUser(trackId, userId) {
+    return reactions
+      .filter((r) => r.track_id === trackId && r.user_id === userId)
+      .map((r) => r.emoji);
   }
 
   function trackAvg(trackId, userId) {
@@ -300,8 +313,8 @@ export default function AlbumReview({ user }) {
               const myAvg = trackAvg(track.id, user.id);
               const pAvg = partner ? trackAvg(track.id, partner.id) : null;
               const isHotTake = partner && allCatsScored(track.id) && hotTakeDiff(track.id) >= 2;
-              const myReaction = getReactionForUser(track.id, user.id);
-              const partnerReaction = partner ? getReactionForUser(track.id, partner.id) : null;
+              const myReactions = getReactionsForUser(track.id, user.id);
+              const partnerReactions = partner ? getReactionsForUser(track.id, partner.id) : [];
               const isPlayerOpen = playerTrackId === track.id;
 
               return (
@@ -327,7 +340,7 @@ export default function AlbumReview({ user }) {
 
                     {CATEGORIES.map((cat) => {
                       const myVal = getScore(track.id, user.id, cat.key);
-                      const revealed = bothScored(track.id, cat.key);
+                      const partnerVal = partner ? getScore(track.id, partner.id, cat.key) : null;
 
                       return (
                         <React.Fragment key={cat.key}>
@@ -340,13 +353,9 @@ export default function AlbumReview({ user }) {
                           </td>
                           {partner && (
                             <td className="td-score">
-                              {revealed ? (
-                                <span className="pill them">
-                                  {getScore(track.id, partner.id, cat.key)}
-                                </span>
-                              ) : (
-                                <span className="pill hidden">?</span>
-                              )}
+                              <span className={`pill them ${partnerVal != null ? "" : "empty"}`}>
+                                {partnerVal != null ? partnerVal : "–"}
+                              </span>
                             </td>
                           )}
                         </React.Fragment>
@@ -358,34 +367,36 @@ export default function AlbumReview({ user }) {
                     </td>
                     {partner && (
                       <td className="td-score">
-                        {allCatsScored(track.id) ? (
-                          <span className="pill avg them">{pAvg || "–"}</span>
-                        ) : (
-                          <span className="pill hidden">?</span>
-                        )}
+                        <span className={`pill avg them ${pAvg ? "" : "empty"}`}>
+                          {pAvg || "–"}
+                        </span>
                       </td>
                     )}
 
                     <td className="td-react">
                       <div className="reaction-cell">
-                        {myReaction && <span className="my-reaction">{myReaction}</span>}
-                        {partnerReaction && (
-                          <span className="partner-reaction" title={`${partnerName} reacted`}>
-                            {partnerReaction}
-                          </span>
-                        )}
+                        <div className="reaction-emojis">
+                          {myReactions.map((em) => (
+                            <span key={em} className="my-reaction">{em}</span>
+                          ))}
+                          {partnerReactions.map((em) => (
+                            <span key={em} className="partner-reaction" title={`${partnerName}`}>
+                              {em}
+                            </span>
+                          ))}
+                        </div>
                         <button
                           className="react-btn"
                           onClick={() => setOpenPicker(openPicker === track.id ? null : track.id)}
                         >
-                          {myReaction ? "✏️" : "+"}
+                          +
                         </button>
                         {openPicker === track.id && (
                           <div className="emoji-picker">
                             {REACTION_EMOJIS.map((em) => (
                               <button
                                 key={em}
-                                className="emoji-opt"
+                                className={`emoji-opt ${myReactions.includes(em) ? "selected" : ""}`}
                                 onClick={() => handleReaction(track.id, em)}
                               >
                                 {em}
@@ -425,7 +436,7 @@ export default function AlbumReview({ user }) {
           <span className="legend-you">● You</span>
           {partner && <span className="legend-them">● {partnerName}</span>}
         </div>
-        <span className="guide">Tap a number to score · Partner scores reveal when you both score</span>
+        <span className="guide">Tap a cell to score · 1 = nah · 5 = banger</span>
       </footer>
     </div>
   );

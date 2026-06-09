@@ -425,7 +425,8 @@ body {
 .pill.avg { font-weight: 800; }
 
 .score-dropdown {
-  position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%);
+  position: absolute; top: 100%; left: 50%; transform: translateX(-50%);
+  margin-top: 4px;
   background: var(--surface); border: 1px solid var(--border);
   border-radius: var(--radius-sm); padding: 4px;
   display: flex; flex-wrap: wrap; gap: 2px;
@@ -476,6 +477,12 @@ body {
   transition: background 0.1s;
 }
 .emoji-opt:hover { background: rgba(255,255,255,0.08); }
+.emoji-opt.selected { background: var(--you-bg); outline: 2px solid var(--you); }
+
+.reaction-emojis { display: flex; gap: 1px; flex-wrap: wrap; }
+
+.pill.them.empty { color: var(--text-muted); background: rgba(255,255,255,0.03); }
+.pill.avg.them.empty { color: var(--text-muted); background: rgba(255,255,255,0.03); }
 
 /* Footer */
 .review-footer {
