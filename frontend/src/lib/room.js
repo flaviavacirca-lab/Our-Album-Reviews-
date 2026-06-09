@@ -1,14 +1,5 @@
 import { supabase } from "./supabase.js";
 
-function generateCode() {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  let code = "";
-  for (let i = 0; i < 6; i++) {
-    code += chars[Math.floor(Math.random() * chars.length)];
-  }
-  return code;
-}
-
 export async function ensureUser(spotifyProfile) {
   const { data: existing } = await supabase
     .from("users")
@@ -32,58 +23,15 @@ export async function ensureUser(spotifyProfile) {
   return data;
 }
 
-export async function createRoom(userId) {
-  const code = generateCode();
-  const { data, error } = await supabase
-    .from("rooms")
-    .insert({ code, created_by: userId })
-    .select()
-    .single();
-  if (error) throw error;
-  return data;
-}
-
-export async function joinRoom(code, userId) {
-  const { data: room, error: findErr } = await supabase
-    .from("rooms")
-    .select("*")
-    .eq("code", code.toUpperCase())
-    .single();
-
-  if (findErr || !room) throw new Error("Room not found");
-  if (room.created_by === userId) return room;
-  if (room.partner_id && room.partner_id !== userId) throw new Error("Room is full");
-
-  if (!room.partner_id) {
-    const { data, error } = await supabase
-      .from("rooms")
-      .update({ partner_id: userId })
-      .eq("id", room.id)
-      .select()
-      .single();
-    if (error) throw error;
-    return data;
-  }
-
-  return room;
-}
-
-export async function getUserRooms(userId) {
-  const { data, error } = await supabase
-    .from("rooms")
-    .select("*")
-    .or(`created_by.eq.${userId},partner_id.eq.${userId}`)
-    .order("created_at", { ascending: false });
-
-  if (error) throw error;
+export async function getAllUsers() {
+  const { data } = await supabase.from("users").select("*");
   return data || [];
 }
 
-export async function startReview(roomId, album) {
+export async function startReview(album) {
   const { data: existing } = await supabase
     .from("reviews")
     .select("*")
-    .eq("room_id", roomId)
     .eq("album_id", album.id)
     .single();
 
@@ -92,7 +40,6 @@ export async function startReview(roomId, album) {
   const { data, error } = await supabase
     .from("reviews")
     .insert({
-      room_id: roomId,
       album_id: album.id,
       album_name: album.name,
       artist_name: album.artists.map((a) => a.name).join(", "),
@@ -105,11 +52,10 @@ export async function startReview(roomId, album) {
   return data;
 }
 
-export async function getRoomReviews(roomId) {
+export async function getAllReviews() {
   const { data, error } = await supabase
     .from("reviews")
     .select("*")
-    .eq("room_id", roomId)
     .order("started_at", { ascending: false });
 
   if (error) throw error;
@@ -149,11 +95,34 @@ export async function getReviewScores(reviewId) {
   return data || [];
 }
 
-export async function markReviewComplete(reviewId) {
-  const { error } = await supabase
-    .from("reviews")
-    .update({ completed: true })
-    .eq("id", reviewId);
+export async function toggleDisagree(reviewId, trackId, userId) {
+  const { data: existing } = await supabase
+    .from("disagrees")
+    .select("*")
+    .eq("review_id", reviewId)
+    .eq("track_id", trackId)
+    .eq("user_id", userId)
+    .single();
+
+  if (existing) {
+    await supabase.from("disagrees").delete().eq("id", existing.id);
+    return false;
+  } else {
+    await supabase.from("disagrees").insert({
+      review_id: reviewId,
+      track_id: trackId,
+      user_id: userId,
+    });
+    return true;
+  }
+}
+
+export async function getDisagrees(reviewId) {
+  const { data, error } = await supabase
+    .from("disagrees")
+    .select("*")
+    .eq("review_id", reviewId);
 
   if (error) throw error;
+  return data || [];
 }

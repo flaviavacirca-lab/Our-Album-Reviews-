@@ -1,100 +1,118 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { createRoom, joinRoom, getUserRooms } from "../lib/room.js";
+import { searchAlbums, getAlbumTracks } from "../lib/spotify.js";
+import { startReview, getAllReviews } from "../lib/room.js";
 
 export default function Home({ user, spotifyUser, onLogout }) {
-  const [rooms, setRooms] = useState([]);
-  const [joinCode, setJoinCode] = useState("");
-  const [error, setError] = useState("");
-  const [creating, setCreating] = useState(false);
+  const [reviews, setReviews] = useState([]);
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState([]);
+  const [searching, setSearching] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
-    getUserRooms(user.id).then(setRooms);
-  }, [user.id]);
+    getAllReviews().then(setReviews);
+  }, []);
 
-  const handleCreate = async () => {
-    setCreating(true);
-    setError("");
-    try {
-      const room = await createRoom(user.id);
-      navigate(`/room/${room.id}`);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setCreating(false);
-    }
-  };
+  useEffect(() => {
+    if (!query.trim()) { setResults([]); return; }
+    const timer = setTimeout(async () => {
+      setSearching(true);
+      try {
+        setResults(await searchAlbums(query));
+      } catch {
+        setResults([]);
+      } finally {
+        setSearching(false);
+      }
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [query]);
 
-  const handleJoin = async (e) => {
-    e.preventDefault();
-    setError("");
-    if (!joinCode.trim()) return;
-    try {
-      const room = await joinRoom(joinCode, user.id);
-      navigate(`/room/${room.id}`);
-    } catch (err) {
-      setError(err.message);
-    }
+  const handleSelectAlbum = async (album) => {
+    const review = await startReview(album);
+    navigate(`/review/${review.id}`);
   };
 
   return (
     <div className="home-page">
       <header className="app-header">
-        <h1>♫ Our Album Reviews</h1>
+        <div className="header-left">
+          <span className="header-logo">♫</span>
+          <h1>Our Albums</h1>
+        </div>
         <div className="user-info">
           {spotifyUser?.images?.[0] && (
             <img src={spotifyUser.images[0].url} alt="" className="avatar" />
           )}
-          <span>{spotifyUser?.display_name}</span>
-          <button className="btn-sm btn-ghost" onClick={onLogout}>Logout</button>
+          <span className="user-name">{spotifyUser?.display_name}</span>
+          <button className="btn-ghost" onClick={onLogout}>Log out</button>
         </div>
       </header>
 
-      <main className="home-content">
-        <section className="room-actions">
-          <button className="btn-primary" onClick={handleCreate} disabled={creating}>
-            {creating ? "Creating..." : "Create New Room"}
-          </button>
-
-          <div className="divider"><span>or join a room</span></div>
-
-          <form onSubmit={handleJoin} className="join-form">
+      <main className="home-main">
+        <section className="search-section">
+          <h2>What are we listening to?</h2>
+          <div className="search-box">
+            <span className="search-icon">🔍</span>
             <input
               type="text"
-              value={joinCode}
-              onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-              placeholder="Enter 6-letter code"
-              maxLength={6}
-              className="input-code"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search for an album or artist..."
+              className="search-input"
+              autoFocus
             />
-            <button type="submit" className="btn-secondary" disabled={joinCode.length < 6}>
-              Join
-            </button>
-          </form>
+            {searching && <div className="search-spinner" />}
+          </div>
+
+          {results.length > 0 && (
+            <div className="album-grid">
+              {results.map((album) => (
+                <button
+                  key={album.id}
+                  className="album-card"
+                  onClick={() => handleSelectAlbum(album)}
+                >
+                  <div className="album-art-wrap">
+                    {album.images?.[1] ? (
+                      <img src={album.images[1].url} alt="" className="album-art" />
+                    ) : (
+                      <div className="album-art-placeholder">♫</div>
+                    )}
+                  </div>
+                  <div className="album-meta">
+                    <span className="album-title">{album.name}</span>
+                    <span className="album-artist">
+                      {album.artists.map((a) => a.name).join(", ")}
+                    </span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
         </section>
 
-        {error && <p className="error-msg">{error}</p>}
-
-        {rooms.length > 0 && (
-          <section className="room-history">
-            <h2>Your Rooms</h2>
-            <div className="room-list">
-              {rooms.map((room) => (
+        {reviews.length > 0 && (
+          <section className="history-section">
+            <h2>Previously reviewed</h2>
+            <div className="history-list">
+              {reviews.map((rev) => (
                 <button
-                  key={room.id}
-                  className="room-card"
-                  onClick={() => navigate(`/room/${room.id}`)}
+                  key={rev.id}
+                  className="history-card"
+                  onClick={() => navigate(`/review/${rev.id}`)}
                 >
-                  <span className="room-code">{room.code}</span>
-                  <span className="room-date">
-                    {new Date(room.created_at).toLocaleDateString()}
-                  </span>
-                  {room.partner_id ? (
-                    <span className="badge badge-paired">Paired</span>
-                  ) : (
-                    <span className="badge badge-waiting">Waiting</span>
+                  {rev.album_image && (
+                    <img src={rev.album_image} alt="" className="history-art" />
                   )}
+                  <div className="history-meta">
+                    <span className="history-title">{rev.album_name}</span>
+                    <span className="history-artist">{rev.artist_name}</span>
+                  </div>
+                  <span className="history-date">
+                    {new Date(rev.started_at).toLocaleDateString()}
+                  </span>
                 </button>
               ))}
             </div>

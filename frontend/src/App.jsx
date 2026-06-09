@@ -3,7 +3,7 @@ import { useAuth } from "./hooks/useAuth.js";
 import Login from "./pages/Login.jsx";
 import AuthCallback from "./pages/AuthCallback.jsx";
 import Home from "./pages/Home.jsx";
-import Room from "./pages/Room.jsx";
+import AlbumReview from "./pages/AlbumReview.jsx";
 
 export default function App() {
   const { spotifyUser, dbUser, loading, login, logout, refresh } = useAuth();
@@ -11,7 +11,7 @@ export default function App() {
   if (loading) {
     return (
       <div className="loading-page">
-        <div className="spinner" />
+        <div className="loader" />
       </div>
     );
   }
@@ -19,23 +19,18 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route
-          path="/auth-callback"
-          element={<AuthCallback onAuth={refresh} />}
-        />
+        <Route path="/auth-callback" element={<AuthCallback onAuth={refresh} />} />
         {!dbUser ? (
           <Route path="*" element={<Login onLogin={login} />} />
         ) : (
           <>
             <Route
               path="/"
-              element={
-                <Home user={dbUser} spotifyUser={spotifyUser} onLogout={logout} />
-              }
+              element={<Home user={dbUser} spotifyUser={spotifyUser} onLogout={logout} />}
             />
             <Route
-              path="/room/:roomId"
-              element={<Room user={dbUser} />}
+              path="/review/:reviewId"
+              element={<AlbumReview user={dbUser} />}
             />
           </>
         )}
