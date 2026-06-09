@@ -95,3 +95,22 @@ export async function getReviewScores(reviewId) {
   return data || [];
 }
 
+export async function setReaction(reviewId, trackId, userId, emoji) {
+  const { error } = await supabase
+    .from("reactions")
+    .upsert(
+      { review_id: reviewId, track_id: trackId, user_id: userId, emoji },
+      { onConflict: "review_id,track_id,user_id" }
+    );
+  if (error) throw error;
+}
+
+export async function getReactions(reviewId) {
+  const { data, error } = await supabase
+    .from("reactions")
+    .select("*")
+    .eq("review_id", reviewId);
+
+  if (error) throw error;
+  return data || [];
+}
