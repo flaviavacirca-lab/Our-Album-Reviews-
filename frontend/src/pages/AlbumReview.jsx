@@ -341,6 +341,7 @@ export default function AlbumReview({ user }) {
                     {CATEGORIES.map((cat) => {
                       const myVal = getScore(track.id, user.id, cat.key);
                       const partnerVal = partner ? getScore(track.id, partner.id, cat.key) : null;
+                      const revealed = bothScored(track.id, cat.key);
 
                       return (
                         <React.Fragment key={cat.key}>
@@ -353,9 +354,17 @@ export default function AlbumReview({ user }) {
                           </td>
                           {partner && (
                             <td className="td-score">
-                              <span className={`pill them ${partnerVal != null ? "" : "empty"}`}>
-                                {partnerVal != null ? partnerVal : "–"}
-                              </span>
+                              {revealed ? (
+                                <span className="pill them revealed">
+                                  {partnerVal}
+                                </span>
+                              ) : partnerVal != null ? (
+                                <span className="pill locked" title={`${partnerName} scored — add yours to reveal!`}>
+                                  🔒
+                                </span>
+                              ) : (
+                                <span className="pill hidden">?</span>
+                              )}
                             </td>
                           )}
                         </React.Fragment>
@@ -367,9 +376,11 @@ export default function AlbumReview({ user }) {
                     </td>
                     {partner && (
                       <td className="td-score">
-                        <span className={`pill avg them ${pAvg ? "" : "empty"}`}>
-                          {pAvg || "–"}
-                        </span>
+                        {allCatsScored(track.id) ? (
+                          <span className="pill avg them revealed">{pAvg || "–"}</span>
+                        ) : (
+                          <span className="pill hidden">?</span>
+                        )}
                       </td>
                     )}
 
@@ -436,7 +447,7 @@ export default function AlbumReview({ user }) {
           <span className="legend-you">● You</span>
           {partner && <span className="legend-them">● {partnerName}</span>}
         </div>
-        <span className="guide">Tap a cell to score · 1 = nah · 5 = banger</span>
+        <span className="guide">🔒 = they scored, score yours to reveal · 1 = nah · 5 = banger</span>
       </footer>
     </div>
   );
